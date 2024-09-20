@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Event Viewer</title>
+
+    <!-- Adding Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #333;
+        }
+
+        #events {
+            width: 100%;
+            max-width: 800px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .event {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            font-size: 1.1rem;
+            color: #555;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.5s ease forwards;
+        }
+
+        .event:last-child {
+            border-bottom: none;
+        }
+
+        /* Event text style */
+        .event span {
+            font-weight: 500;
+            color: #333;
+        }
+
+        /* Animation to fade in new events */
+        @keyframes fadeInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>GitHub Events</h1>
+    <div id="events"></div>
+
+    <script>
+        var lastTimestamp = "";  // Initial timestamp set to the epoch (1970)
+
+        // Function to format the date in "1st April 2021 - 9:30 PM UTC" format
+        function formatDateTime(dateString) {
+            const date = new Date(dateString);
+            const options = { year: 'numeric', month: 'long' };
+            const formattedDate = date.toLocaleDateString('en-GB', options);
+
+            const hours = date.getUTCHours();
+            const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+            const period = hours >= 12 ? 'PM' : 'AM';
+            const formattedTime = `${hours % 12 || 12}:${minutes} ${period} UTC`;
+
+            // Add the ordinal suffix (st, nd, rd, th) to the day
+            const day = date.getUTCDate();
+            const ordinal = (day % 10 === 1 && day !== 11) ? 'st' : (day % 10 === 2 && day !== 12) ? 'nd' : (day % 10 === 3 && day !== 13) ? 'rd' : 'th';
+
+            return `${day}${ordinal} ${formattedDate} - ${formattedTime}`;
+        }
+
+        function fetchData() {
+
+            fetch(`http://localhost:5000/events?timestamp=${lastTimestamp}`)  // Send the last timestamp
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        const eventsDiv = document.getElementById('events');
+
+                        // Loop through the events and append them to the DOM
+                        data.forEach(event => {
+                            const div = document.createElement('div');
+                            div.className = 'event';
+                            let eventText = "";
+
+                            // Format the timestamp before using it in the event text
+                            const formattedTimestamp = formatDateTime(event.timestamp);
+
+                            switch (event.action) {
+                                case "push":
+                                    eventText = `<span>${event.author}</span> pushed to <span>${event.to_branch}</span> on <span>${formattedTimestamp}</span>`;
+                                    break;
+                                case "pull_request":
+                                    switch (event.status) {
+                                        case "opened":
+                                            eventText = `<span>${event.author}</span> opened a pull request from <span>${event.from_branch}</span> to <span>${event.to_branch}</span> on <span>${formattedTimestamp}</span>`;
+                                            break;
+                                        case "closed":
+                                            eventText = `<span>${event.author}</span> closed a pull request from <span>${event.from_branch}</span> to <span>${event.to_branch}</span> on <span>${formattedTimestamp}</span>`;
+                                            break;
+                                        case "merged":
+                                            eventText = `<span>${event.author}</span> merged a pull request from <span>${event.from_branch}</span> to <span>${event.to_branch}</span> on <span>${formattedTimestamp}</span>`;
+                                            break;
+                                        default:
+                                            eventText = `<span>${event.author}</span> updated a pull request from <span>${event.from_branch}</span> to <span>${event.to_branch}</span> on <span>${formattedTimestamp}</span>. Status: ${event.status}`;
+                                            break;
+                                    }
+                                    break;
+                                case "merge":
+                                    eventText = `<span>${event.author}</span> merged branch <span>${event.from_branch}</span> to <span>${event.to_branch}</span> on <span>${formattedTimestamp}</span>. Status: ${event.status}`;
+                                    break;
+                            }
+
+                            div.innerHTML = eventText; // Set the formatted text
+                            eventsDiv.appendChild(div); // Append the div to the events section
+                        });
+
+                        // Update the lastTimestamp to the timestamp of the last event fetched
+
+                    }
+                })
+                .catch(console.error);
+            if (lastTimestamp === "") {
+                lastTimestamp = new Date().toISOString();
+            } else {
+                let date = new Date(lastTimestamp);  // Convert lastTimestamp to Date object
+                date.setSeconds(date.getSeconds() + 15);  // Add 15 seconds
+                lastTimestamp = date.toISOString();  // Convert back to ISO string
+            }
+
+        }
+
+        fetchData();
+        setInterval(fetchData, 15000); // Poll every 15 seconds
+    </script>
+</body>
+
+</html>
