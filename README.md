@@ -38,7 +38,10 @@ python run.py
 
 ```bash
 POST http://127.0.0.1:5000/webhook/
+
 ```
+* Install ngrok and tunnel localhost to a https link and add the link in the webhook payload URL
+
 
 open the index.html in google chrome (or any browser of your choice)
 
